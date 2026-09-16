@@ -1,0 +1,1 @@
+A solid blue rubber ball starts at a moderate height above the ground, moving diagonally upward with a smooth clockwise spin. It makes an elastic collision with the geometric-patterned gray floor, bounces off, and proceeds with a downward-then-upward projectile trajectory, keeping its consistent clockwise rotation throughout the entire motion.

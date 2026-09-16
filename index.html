@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23000'/%3E%3Crect x='3.5' y='3.5' width='25' height='25' rx='6' fill='none' stroke='%2340A5EB' stroke-width='1.8'/%3E%3Cpath d='M8 22c3.2-1.2 5.4-7.2 9.2-9.4C21.2 10.3 24 12 25 9' fill='none' stroke='%2352BBB1' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='25' cy='9' r='2' fill='%2340A5EB'/%3E%3C/svg%3E">
+  <title>CompAdapt: Adaptable Composite Motion Modeling for Physics-Consistent Text-to-Video Generation</title>
+  <script>
+    /* Fill these before publishing to GitHub Pages / arXiv. */
+    window.SITE = {
+      paperUrl: "",          // e.g. "https://arxiv.org/abs/2608.xxxxx"
+      codeUrl: "",           // e.g. "https://github.com/YOUR_ORG/CompAdapt"
+      arxivId: "",           // e.g. "2608.xxxxx"
+      authorsHtml: "Haoran Qin<sup>1</sup>, Renlong Wu<sup>1</sup>, Tianyu Huang<sup>1</sup>, Yukang Ding<sup>2</sup>, Hui Li<sup>1</sup>, Wangmeng Zuo<sup>1</sup>",
+      affiliationsHtml: "<sup>1</sup> Harbin Institute of Technology, China &nbsp;&middot;&nbsp; <sup>2</sup> Taobao, Alibaba Group, China",
+      bibAuthors: "Haoran Qin and Renlong Wu and Tianyu Huang and Yukang Ding and Hui Li and Wangmeng Zuo"
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000;
+      --surface-deep: #121214;
+      --surface: #1D1D1F;
+      --surface-hover: #2A2A2D;
+      --border: #424245;
+      --text: #F5F5F7;
+      --text-muted: #8E8E93;
+      --text-faint: #76767B;
+      --link: #3274D8;
+      --accent: #40A5EB;
+      --accent-soft: #6E85DF;
+      --accent-teal: #52BBB1;
+      --flow-ours: #B3DBF7;
+      --flow-base: #F7C3C5;
+      --flow-ref: #BAE4E0;
+      --font-sans: "Lato", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --step--1: 0.875rem;
+      --step-0: 1.0625rem;
+      --step-1: 1.3125rem;
+      --step-2: 2rem;
+      --step-3: 2.2rem;
+      --container: 60rem;
+      --gutter: clamp(1.1rem, 4vw, 2rem);
+      --section-gap: clamp(6rem, 10vw, 10rem);
+      --radius-media: 16px;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --radius-pill: 999px;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+      --anchor-offset: 5.5rem;
+      --border-strong: #55555A;
+      --ok: #6FD6A0;
+      --no: #F28585;
+      --violet: #B58CEF;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
+      --font-math: "Cambria Math", Cambria, Georgia, "Times New Roman", serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      color-scheme: dark;
+      scroll-behavior: smooth;
+      scroll-padding-top: var(--anchor-offset);
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: var(--step-0);
+      line-height: 1.47;
+      letter-spacing: -0.01em;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    img, video, svg { display: block; max-width: 100%; }
+    video { height: auto; -webkit-user-drag: none; user-select: none; }
+
+    h1, h2, h3 { margin: 0; font-weight: 700; text-wrap: balance; }
+    h1 { font-size: var(--step-3); line-height: 1.1; }
+    h2 { font-size: var(--step-2); line-height: 1.125; }
+    h3 { font-size: var(--step-1); }
+
+    p { margin: 0 0 1em; text-wrap: pretty; }
+    p:last-child { margin-bottom: 0; }
+
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    :focus-visible {
+      outline: 2px solid var(--link);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--container);
+      margin-inline: auto;
+      padding-inline: var(--gutter);
+    }
+
+    /* --- topbar --- */
+    .topbar {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      padding: max(0.25rem, env(safe-area-inset-top, 0px)) var(--gutter) 0;
+      pointer-events: none;
+    }
+
+    .topbar__pill {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: calc(var(--container) - var(--gutter) * 2);
+      padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+      border-radius: var(--radius-media);
+      background: color-mix(in srgb, var(--bg) 65%, transparent);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      box-shadow: 0 0 0 1px var(--border);
+      opacity: 0;
+      transform: translateY(calc(-100% - 1.5rem));
+      transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+      pointer-events: none;
+    }
+
+    .topbar.is-pinned .topbar__pill {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+
+    .topbar__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+    .topbar__brand:hover { text-decoration: none; }
+    .topbar__brand svg { width: 1.4rem; height: 1.4rem; }
+
+    .topbar__nav {
+      display: flex;
+      gap: 0.25rem;
+      margin-left: auto;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .topbar__nav::-webkit-scrollbar { display: none; }
+
+    .topbar__link {
+      padding: 0.35rem 0.7rem;
+      border-radius: var(--radius-pill);
+      color: var(--text-faint);
+      font-size: var(--step--1);
+      white-space: nowrap;
+      transition: color 0.2s var(--ease), background-color 0.2s var(--ease);
+    }
+    .topbar__link:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+      text-decoration: none;
+    }
+    .topbar__link.is-active {
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    @media (max-width: 44rem) {
+      .topbar { display: none; }
+    }
+
+    /* --- hero --- */
+    .hero {
+      padding-top: max(clamp(1.5rem, 5vw, 3.5rem), env(safe-area-inset-top, 0px));
+      padding-bottom: var(--section-gap);
+      text-align: center;
+    }
+
+    .hero__title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55em;
+      margin-bottom: 1.25rem;
+      text-align: left;
+    }
+
+    .hero__logo { height: 2.4em; width: auto; flex-shrink: 0; }
+
+    .hero__name {
+      display: inline;
+      background: linear-gradient(90deg, var(--accent-soft) 0%, var(--accent) 25%, var(--accent-teal) 50%, var(--accent) 75%, var(--accent-soft) 100%);
+      background-size: 200% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-drift 8s ease-in-out infinite alternate;
+    }
+
+    @keyframes gradient-drift {
+      from { background-position: 0% 50%; }
+      to { background-position: 100% 50%; }
+    }
+
+    .hero__sub {
+      display: inline;
+      color: var(--text);
+      font-weight: 400;
+    }
+
+    @media (max-width: 52rem) { .hero__br { display: none; } }
+
+    .hero__meta {
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .hero__authors a { color: var(--accent); }
+    .hero__authors a:hover { color: var(--text); }
+
+    .hero__affil {
+      color: var(--text-muted);
+      font-size: var(--step--1);
+      margin-bottom: 0.85rem;
+    }
+    .hero__affil[hidden] { display: none; }
+
+    .hero__venue {
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.6rem;
+      margin: 0 auto 1.75rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.15rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      color: var(--text);
+      font-size: var(--step-0);
+      line-height: 1.2;
+    }
+    .button:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+      text-decoration: none;
+    }
+    .button.is-pending {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .button svg {
+      width: 1.05em;
+      height: 1.05em;
+      flex: none;
+      fill: currentColor;
+    }
+    .button--sm {
+      padding: 0.4rem 0.75rem;
+      font-size: var(--step--1);
+    }
+
+    .bibtex {
+      position: relative;
+      background: var(--surface-deep);
+      border-radius: var(--radius);
+      box-shadow: 0 0 0 1px var(--border);
+      padding: 1.1rem 1.15rem 1.15rem;
+      overflow: auto;
+    }
+    .bibtex pre {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .bibtex__copy {
+      position: absolute;
+      top: 0.7rem;
+      right: 0.7rem;
+    }
+
+    .hero__teaser {
+      margin: 0 auto 1.25rem;
+      max-width: 52rem;
+      border-radius: var(--radius-media);
+      overflow: hidden;
+      background: var(--surface-deep);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+
+    .hero__teaser video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+    }
+
+    .hero__tagline {
+      color: var(--text-muted);
+      font-size: var(--step-1);
+      letter-spacing: 0.011em;
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 44rem) {
+      .hero__title { flex-direction: column; text-align: center; }
+      .hero__logo { height: 3.2rem; }
+    }
+
+    /* --- sections --- */
+    .section { padding-block: var(--section-gap); }
+    .hero + .section,
+    .section + .section { padding-top: 0; }
+
+    .section__head { margin-bottom: clamp(2.5rem, 5vw, 4rem); }
+    .section__head > h2 { text-align: center; }
+    .section__lead {
+      margin-top: 1.5rem;
+      color: var(--text);
+      text-align: left;
+    }
+
+    .caption {
+      margin-top: 0.85rem;
+      color: var(--text-muted);
+      font-size: var(--step--1);
+      text-align: left;
+    }
+
+    .caption strong { color: var(--text); font-weight: 700; }
+
+    /* prompt blocks: the free-form text input shown under each clip */
+    .grid-3 figure { display: flex; flex-direction: column; margin: 0; }
+    .prompt {
+      margin-top: 0.7rem;
+      text-align: left;
+      background: var(--surface-deep);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      border-radius: 9px;
+      padding: 0.55rem 0.8rem 0.62rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
+    .prompt::before {
+      content: "Prompt";
+      display: block;
+      margin-bottom: 0.24rem;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .prompt__body { margin: 0; }
+    .prompt--titled { border-left-color: var(--flow-ours); }
+    .prompt--titled::before { content: none; }
+    .prompt__title {
+      display: block;
+      margin-bottom: 0.26rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--flow-ours);
+    }
+
+    /* Examples: prompt cards share one height; over-long text scrolls inside */
+    #examples .prompt { display: flex; flex-direction: column; }
+    #examples .prompt__body {
+      margin: 0;
+      height: 9.3em;                 /* ~6 lines at 0.8rem / 1.55 line-height */
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 0.4rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(140, 150, 170, 0.45) transparent;
+    }
+    #examples .prompt__body::-webkit-scrollbar { width: 6px; }
+    #examples .prompt__body::-webkit-scrollbar-thumb { background: rgba(140, 150, 170, 0.40); border-radius: 999px; }
+    #examples .prompt__body::-webkit-scrollbar-track { background: transparent; }
+    @media (max-width: 52rem) {
+      #examples .prompt__body { height: auto; overflow: visible; padding-right: 0; }
+    }
+
+    /* --- media frames --- */
+    .frame {
+      border-radius: var(--radius-media);
+      overflow: hidden;
+      background: var(--surface-deep);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .frame video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      vertical-align: middle;
+    }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
+
+    .triple {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.85rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 52rem) {
+      .pair, .triple, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .cell__label {
+      margin: 0 0 0.55rem;
+      font-size: var(--step--1);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .cell__label--ours { color: var(--flow-ours); }
+    .cell__label--base { color: var(--flow-base); }
+    .cell__label--ref { color: var(--flow-ref); }
+
+    /* --- tabs --- */
+    .tabs__platter {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .tabs__track {
+      position: relative;
+      display: flex;
+      gap: 0.15rem;
+      padding: 0.28rem;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      box-shadow: 0 0 0 1px var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+      max-width: 100%;
+    }
+    .tabs__track::-webkit-scrollbar { display: none; }
+
+    .tabs__indicator {
+      position: absolute;
+      top: 0.28rem;
+      left: 0;
+      height: calc(100% - 0.56rem);
+      border-radius: var(--radius-pill);
+      background: var(--surface-hover);
+      box-shadow: 0 0 0 1px var(--border);
+      transition: transform 0.28s var(--ease), width 0.28s var(--ease);
+      pointer-events: none;
+    }
+
+    .tabs__tab {
+      position: relative;
+      z-index: 1;
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--text-faint);
+      font: inherit;
+      font-size: var(--step--1);
+      padding: 0.4rem 0.85rem;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .tabs__tab:hover { color: var(--text); }
+    .tabs__tab[aria-selected="true"] { color: var(--text); }
+
+    .tabs__panel { display: none; }
+    .tabs__panel.is-active { display: block; }
+
+    /* ============ hero concept board ============ */
+    .hero-board {
+      max-width: 66rem;
+      margin: 0 auto 1.4rem;
+      text-align: left;
+      display: grid;
+      gap: clamp(1.05rem, 2.4vw, 1.6rem);
+      padding: clamp(1rem, 2.4vw, 1.7rem);
+      border-radius: var(--radius-media);
+      background:
+        radial-gradient(120% 140% at 50% -10%, color-mix(in srgb, var(--accent-soft) 14%, transparent), transparent 60%),
+        linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, #000 30%), var(--surface-deep));
+      box-shadow: 0 0 0 1px var(--border), 0 30px 70px -38px rgba(0, 0, 0, 0.85);
+    }
+
+    .band { display: grid; gap: 0.8rem; }
+    .band__eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .band__eyebrow::before {
+      content: "";
+      width: 0.58rem; height: 0.58rem; border-radius: 2px; flex: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-teal));
+    }
+    .band--adapt .band__eyebrow::before { background: linear-gradient(135deg, var(--violet), var(--accent-soft)); }
+    .band__eyebrow span { margin-left: auto; font-weight: 400; letter-spacing: 0.02em; text-transform: none; font-size: 0.82rem; }
+
+    .clipgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.6rem; }
+    @media (max-width: 62rem) { .clipgrid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 34rem) { .clipgrid { grid-template-columns: repeat(2, 1fr); } }
+
+    .tile {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #050506;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .tile video { width: 100%; height: 100%; object-fit: cover; }
+    .tile--schematic { background: #f3f4f7; }
+    .tile--schematic video { object-fit: contain; }
+    .tile--real { background: #000; }
+    .tile--real video { object-fit: contain; }
+    .tile__tag {
+      position: absolute; top: 0.4rem; left: 0.45rem; z-index: 2;
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: #dff3ff; background: rgba(8, 16, 24, 0.62);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+      padding: 0.14rem 0.42rem; border-radius: 5px;
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    }
+    .tile__scrim {
+      position: absolute;
+      inset: auto 0 0 0;
+      padding: 1.15rem 0.4rem 0.4rem;
+      background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.82));
+      color: #fff;
+      font-size: 0.66rem;
+      line-height: 1.2;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.01em;
+      pointer-events: none;
+    }
+
+    .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0.7rem; align-items: stretch; }
+    .flowcell { display: grid; gap: 0.5rem; align-content: start; }
+    .flowcell__head { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--step--1); font-weight: 700; }
+    .flowcell--ref .flowcell__head { color: var(--flow-ref); }
+    .flowcell--zs .flowcell__head { color: var(--flow-base); }
+    .flowcell--os .flowcell__head { color: var(--flow-ours); }
+    .flow__arrow { align-self: center; display: grid; place-items: center; color: var(--text-faint); }
+    .flow__arrow svg { width: 24px; height: 24px; }
+    .badge { width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-grid; place-items: center; flex: none; }
+    .badge svg { width: 0.82em; height: 0.82em; }
+    .badge--ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+    .badge--no { background: color-mix(in srgb, var(--no) 20%, transparent); color: var(--no); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--no) 55%, transparent); }
+    @media (max-width: 46rem) {
+      .flow { grid-template-columns: 1fr; }
+      .flow__arrow { transform: rotate(90deg); justify-self: start; margin-left: 0.6rem; }
+      .band__eyebrow { flex-wrap: wrap; column-gap: 0.5rem; }
+      .band__eyebrow span { flex-basis: 100%; margin-left: 0; }
+    }
+
+    /* ============ method ============ */
+    .figure-plate {
+      background: #f5f6f8;
+      border-radius: var(--radius-media);
+      padding: clamp(0.55rem, 1.6vw, 1.05rem);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .figure-plate img { width: 100%; height: auto; display: block; border-radius: 8px; }
+    .hero-figure { padding: clamp(0.4rem, 1vw, 0.7rem); }
+    .hero-figure img { border-radius: 6px; }
+    .figcap { margin-top: 0.8rem; color: var(--text-muted); font-size: var(--step--1); text-align: center; }
+
+    .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; margin-top: clamp(1.8rem, 3.4vw, 2.6rem); }
+    @media (max-width: 64rem) { .steps { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 36rem) { .steps { grid-template-columns: 1fr; } }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.05rem 1rem 1.1rem;
+    }
+    .step__num {
+      width: 1.75rem; height: 1.75rem; border-radius: 50%;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 0.95rem; color: #04121c;
+      background: linear-gradient(135deg, var(--accent), var(--accent-teal));
+      margin-bottom: 0.7rem;
+    }
+    .step--adapt .step__num { background: linear-gradient(135deg, var(--violet), var(--accent-soft)); }
+    .step h3 { font-size: 1.02rem; margin-bottom: 0.45rem; line-height: 1.25; }
+    .step p { margin: 0; font-size: 0.88rem; color: var(--text-muted); }
+
+    .methodcols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.1rem; }
+    @media (max-width: 52rem) { .methodcols { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface-deep); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.15rem; }
+    .panel h3 { font-size: 1.02rem; margin-bottom: 0.75rem; }
+    .panel p { font-size: 0.9rem; color: var(--text-muted); }
+    .statechips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.2rem; }
+    .chip { font-family: var(--font-mono); font-size: 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 0.28rem 0.5rem; color: var(--text); }
+    .chip b { color: var(--accent); font-weight: 700; }
+    .chip--mu b { color: var(--violet); }
+    .eq {
+      font-family: var(--font-math);
+      font-style: italic;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 0.6rem 0.75rem;
+      margin-top: 0.55rem;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      overflow-x: auto;
+    }
+    .eq .nm { display: block; font-style: normal; font-family: var(--font-sans); color: var(--text-faint); font-size: 0.76rem; letter-spacing: 0.04em; margin-bottom: 0.15rem; }
+    .eq sub, .eq sup { font-size: 0.72em; }
+
+    /* ============ one-shot breadth ============ */
+    .subhead { margin: clamp(2rem, 4vw, 3rem) 0 0; text-align: center; font-size: var(--step-1); }
+    .sublead { max-width: 46rem; margin: 0.8rem auto 0; color: var(--text-muted); text-align: center; font-size: 0.95rem; }
+    .realworld {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9rem;
+      align-items: start;
+      background: color-mix(in srgb, var(--accent-teal) 10%, var(--surface-deep));
+      border: 1px solid color-mix(in srgb, var(--accent-teal) 38%, var(--border));
+      border-radius: var(--radius);
+      padding: 1.05rem 1.2rem;
+    }
+    .realworld__icon { color: var(--accent-teal); display: grid; place-items: center; }
+    .realworld__icon svg { width: 1.7rem; height: 1.7rem; }
+    .realworld h3 { font-size: 1.02rem; margin-bottom: 0.35rem; }
+    .realworld p { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
+    @media (max-width: 40rem) { .realworld { grid-template-columns: 1fr; } }
+
+    /* --- method (legacy prose) --- */
+    .prose { max-width: 46rem; margin-inline: auto; }
+    .prose ul {
+      margin: 1.1rem 0 0;
+      padding-left: 1.25rem;
+    }
+    .prose li + li { margin-top: 0.65rem; }
+
+    footer {
+      padding: 3rem var(--gutter) 4rem;
+      color: var(--text-faint);
+      font-size: var(--step--1);
+      text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" id="topbar">
+    <div class="topbar__pill">
+      <a class="topbar__brand" href="#top">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect x="2.5" y="2.5" width="27" height="27" rx="7" stroke="#40A5EB" stroke-width="1.6"/>
+          <path d="M7 22c3.2-1.2 5.4-7.2 9.2-9.4C20.2 10.3 23 12 25 9" stroke="#52BBB1" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="25" cy="9" r="1.7" fill="#40A5EB"/>
+        </svg>
+        CompAdapt
+      </a>
+      <nav class="topbar__nav" aria-label="Sections">
+        <a class="topbar__link" href="#examples">Examples</a>
+        <a class="topbar__link" href="#comparisons">Comparisons</a>
+        <a class="topbar__link" href="#ablation">Ablation</a>
+        <a class="topbar__link" href="#oneshot">One-Shot</a>
+        <a class="topbar__link" href="#method">Method</a>
+        <a class="topbar__link" href="#bibtex">BibTeX</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="top">
+      <div class="container">
+        <h1 class="hero__title">
+          <svg class="hero__logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="27" height="27" rx="7" stroke="#40A5EB" stroke-width="1.6"/>
+            <path d="M7 22c3.2-1.2 5.4-7.2 9.2-9.4C20.2 10.3 23 12 25 9" stroke="#52BBB1" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="25" cy="9" r="1.7" fill="#40A5EB"/>
+          </svg>
+          <span>
+            <span class="hero__name">CompAdapt</span><span class="hero__sub">: <br class="hero__br">Adaptable Composite Motion Modeling<br class="hero__br"> for Physics-Consistent Text-to-Video Generation</span>
+          </span>
+        </h1>
+        <p class="hero__authors" id="authors">Haoran Qin<sup>1</sup>, Renlong Wu<sup>1</sup>, Tianyu Huang<sup>1</sup>, Yukang Ding<sup>2</sup>, Hui Li<sup>1</sup>, Wangmeng Zuo<sup>1</sup></p>
+        <p class="hero__affil" id="affiliations" hidden></p>
+        <p class="hero__venue">arXiv preprint · 2026</p>
+        <div class="actions">
+          <a class="button is-pending" id="btn-paper" href="#" rel="noopener">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm0 0v6h6M8 13h8M8 17h8M8 9h2"/></svg>
+            Paper
+          </a>
+          <a class="button is-pending" id="btn-code" href="#" rel="noopener">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.84c.85 0 1.71.12 2.51.34 1.9-1.32 2.74-1.05 2.74-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>
+            Code
+          </a>
+        </div>
+        <div class="hero-board">
+          <div class="band band--compo">
+            <p class="band__eyebrow">Composite motion modeling <span>six composite behaviors &middot; three keyframes each</span></p>
+            <div class="figure-plate hero-figure">
+              <img src="assets/teaser_compo.png" alt="Teaser: six composite-motion behaviors supported by CompAdapt, each shown as three keyframes with motion and force arrows." width="3155" height="1126" decoding="async">
+            </div>
+          </div>
+          <div class="band band--adapt">
+            <p class="band__eyebrow">One-shot adaptation <span>a single reference clip is enough to adopt a new physical law</span></p>
+            <div class="flow">
+              <div class="flowcell flowcell--ref">
+                <p class="flowcell__head">One-shot reference · real observation</p>
+                <div class="tile tile--real"><span class="tile__tag">Real · Apollo 15</span><video src="compare_one_shot/real_moon.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </div>
+              <div class="flowcell flowcell--zs">
+                <p class="flowcell__head">Zero-shot · Earth gravity <span class="badge badge--no" aria-label="wrong physical law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/earth.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </div>
+              <div class="flowcell flowcell--os">
+                <p class="flowcell__head">One-shot · Lunar gravity <span class="badge badge--ok" aria-label="correct adapted law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/lunar.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="hero__tagline">Text in, physically consistent composite motion out — coupled dynamics, multi-stage transitions, collisions, and one-shot adaptation to unseen physical laws.</p>
+      </div>
+    </section>
+
+    <section class="section" id="examples">
+      <div class="container">
+        <div class="section__head">
+          <h2>Examples</h2>
+          <p class="section__lead">Physically consistent composite-motion videos from free-form prompts: projectiles, rotation, slope sliding, deformation, and multi-object elastic collisions.</p>
+        </div>
+        <div class="grid-3">
+          <figure>
+            <p class="cell__label cell__label--ours">Projectile + Rotation + Collision</p>
+            <div class="frame"><video src="example1.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">A solid blue rubber ball starts at a moderate height above the ground, moving diagonally upward with a smooth clockwise spin. It makes an elastic collision with the geometric-patterned gray floor, bounces off, and proceeds with a downward-then-upward projectile trajectory, keeping its consistent clockwise rotation throughout the entire motion.</p></div>
+          </figure>
+          <figure>
+            <p class="cell__label cell__label--ours">3D Move + Rotation + Deceleration</p>
+            <div class="frame"><video src="example2.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">A clear polished crystal glass sphere rotates clockwise while performing 3D forward motion toward the camera, and decelerates uniformly throughout the entire movement, resting on a light wooden table against a plain white wall.</p></div>
+          </figure>
+          <figure>
+            <p class="cell__label cell__label--ours">Slope Sliding + Linear Motion</p>
+            <div class="frame"><video src="example3.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">In a warm wooden workshop with soft natural overhead lighting, a small unfinished pine wood block rests on the upper part of a sloped light wood ramp. It slides smoothly down the incline, then exits the ramp and glides across the flat wooden workbench at a steady uniform speed, casting soft shadows on the grainy wood surface.</p></div>
+          </figure>
+          <figure>
+            <p class="cell__label cell__label--ours">Free Fall + Deformation + Collision</p>
+            <div class="frame"><video src="example4.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">On a bright sunny green grass lawn, a matte blue inflatable beach ball (28cm diameter) is positioned motionless at a height of 1.0 meter directly above the center of the light blue mat. It falls straight down in free fall, hits the mat with a soft impact, squishes noticeably into an oblate shape, then springs back up and continues in a natural parabolic projectile motion, casting a crisp shadow on the grass below.</p></div>
+          </figure>
+          <figure>
+            <p class="cell__label cell__label--ours">Head-on Elastic Collision</p>
+            <div class="frame"><video src="example5.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">Two identical glossy dark purple steel spheres with identical mass and size are positioned 1.8 meter apart on a frictionless green billiard table. The left sphere has an initial velocity of 0.3m/s directed straight toward the right sphere, and the right sphere has an equal initial velocity of 0.3m/s directed straight toward the left sphere. They undergo a perfect head-on elastic collision.</p></div>
+          </figure>
+          <figure>
+            <p class="cell__label cell__label--ours">Oblique Elastic Collision</p>
+            <div class="frame"><video src="example6.mp4" muted loop playsinline controls preload="none"></video></div>
+            <div class="prompt"><p class="prompt__body">Two identical-mass standard billiard balls sit on a soft low-friction emerald green felt surface: a shiny metallic golden sphere at the left rear, and a pristine glossy black 9-ball with crisp white numbering stationary at the right front, with a 70cm straight-line distance between their centers. The golden ball moves forward at a 25-degree oblique angle relative to the line connecting the two balls. They collide in a clean elastic glancing impact, and both balls subsequently perform continuous, fluid 3D rolling motion along their separate diverging trajectories.</p></div>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="comparisons">
+      <div class="container">
+        <div class="section__head">
+          <h2>Comparisons</h2>
+          <p class="section__lead">CompAdapt versus general T2V models (Sora, Veo3, CogVideoX-5B, Wan2.2) and physics-constrained baselines (NewtonGen, PhysT2V) on representative composite-motion prompts.</p>
+        </div>
+        <div class="tabs" data-tabs>
+          <div class="tabs__platter">
+            <div class="tabs__track" role="tablist" aria-label="Comparison scenarios">
+              <span class="tabs__indicator" data-indicator></span>
+              <button class="tabs__tab" role="tab" aria-selected="true" aria-controls="cmp-1" id="tab-cmp-1">Projectile</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="cmp-2" id="tab-cmp-2">Oscillation</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="cmp-3" id="tab-cmp-3">Fall → Osc.</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="cmp-4" id="tab-cmp-4">Accel. → Cruise</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="cmp-5" id="tab-cmp-5">3D + Scale</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="cmp-6" id="tab-cmp-6">Collision</button>
+            </div>
+          </div>
+
+          <div class="tabs__panel is-active" id="cmp-1" role="tabpanel" aria-labelledby="tab-cmp-1">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/1.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">NewtonGen</p>
+                <div class="frame"><video src="compare_qualitative/1_newtongen.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Projectile + Rotation</span><p class="prompt__body">Under soft diffused overcast autumn daylight, a thin natural beige wooden chopstick starts from the top-left corner of the frame at a height of 0.9 meters above the deck. It is tossed diagonally downward at a 35-degree angle with a leisurely initial speed, traveling along a smooth parabolic path while rotating at a barely noticeable, glacial clockwise pace, barely turning a right angle throughout its entire descent. Below it lies a rustic weathered gray wooden deck scattered with curled, faded brown and amber fallen leaves, with a hazy backdrop of out-of-focus vibrant green bushes.</p></div>
+          </div>
+
+          <div class="tabs__panel" id="cmp-2" role="tabpanel" aria-labelledby="tab-cmp-2">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/2.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">PhysT2V</p>
+                <div class="frame"><video src="compare_qualitative/2_physt2v.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Damped Oscillation + Rotation</span><p class="prompt__body">A brushed golden brass pear-shaped pendulum bob hangs from a delicate linked gold chain, initially held motionless at its leftmost swing position. It begins a gentle, rhythmic simple pendulum motion, swinging smoothly from side to side, and spins slowly and continuously clockwise as it moves. The scene is set on a pristine white laboratory surface, with a sleek silver precision gauge instrument featuring a circular dial and graduated scale resting to the right.</p></div>
+          </div>
+
+          <div class="tabs__panel" id="cmp-3" role="tabpanel" aria-labelledby="tab-cmp-3">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/4.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">Wan2.2</p>
+                <div class="frame"><video src="compare_qualitative/4_wan.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Projectile → Damped Oscillation</span><p class="prompt__body">A flawless mirror-like chrome metal ball hangs motionless at a moderate height above the ground. It accelerates downward in a smooth vertical free fall, touches the surface, and then begins a soft, rhythmic damped simple harmonic oscillation.</p></div>
+          </div>
+
+          <div class="tabs__panel" id="cmp-4" role="tabpanel" aria-labelledby="tab-cmp-4">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/6.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">CogVideoX-5B</p>
+                <div class="frame"><video src="compare_qualitative/6_cogvideo.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Uniform Acceleration → Uniform Motion</span><p class="prompt__body">A sleek futuristic toy truck with a smooth white body, vibrant blue details, and a sunny yellow roof rests motionless on the soft pastel-colored interlocking foam play mat. It begins accelerating steadily to the left, its black wheels spinning faster and faster with gentle momentum, before reaching a constant, smooth cruising speed and moving uniformly across the mat toward the left side of the frame.</p></div>
+          </div>
+
+          <div class="tabs__panel" id="cmp-5" role="tabpanel" aria-labelledby="tab-cmp-5">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/5.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">Veo3</p>
+                <div class="frame"><video src="compare_qualitative/5_voe3.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Rotation + 3D Move + Size Changing</span><p class="prompt__body">A sleek matte charcoal gray rectangular block with subtle light gray edge trim rests motionless at the center of a clean empty space. It glides steadily forward in fluid 3D motion toward the viewer, spins slowly and continuously clockwise around its central vertical axis, and grows larger evenly in all dimensions as it approaches. The scene features a seamless matte light gray floor and background, with soft directional lighting casting a gentle elongated shadow that shifts and scales in sync with the block's movement.</p></div>
+          </div>
+
+          <div class="tabs__panel" id="cmp-6" role="tabpanel" aria-labelledby="tab-cmp-6">
+            <div class="pair">
+              <div>
+                <p class="cell__label cell__label--ours">CompAdapt (Ours)</p>
+                <div class="frame"><video src="compare_qualitative/3.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--base">Sora</p>
+                <div class="frame"><video src="compare_qualitative/3_sora.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt prompt--titled"><span class="prompt__title">Uniform Deceleration → Deformation + Collision → Uniform Motion</span><p class="prompt__body">A vibrant matte orange rubber dodgeball is positioned in the left half of an empty industrial concrete room, initially traveling steadily straight toward the right wall at a moderate constant speed. It strikes the textured gray concrete wall with a firm impact, squishes noticeably into an oblate shape at the moment of collision, then bounces cleanly off the wall and continues moving straight to the left at an identical steady speed, with motion blur emphasizing its continuous movement.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="ablation">
+      <div class="container">
+        <div class="section__head">
+          <h2>Ablation</h2>
+          <p class="section__lead">Video-generation backbones under the same physical trajectory: Go-with-the-Flow (used in NewtonGen), vanilla Wan-Move, and physics-aware Wan-Move with state-dependent feature modulation.</p>
+        </div>
+        <div class="tabs" data-tabs>
+          <div class="tabs__platter">
+            <div class="tabs__track" role="tablist" aria-label="Ablation scenarios">
+              <span class="tabs__indicator" data-indicator></span>
+              <button class="tabs__tab" role="tab" aria-selected="true" aria-controls="abl-1" id="tab-abl-1">Balloon bounce</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="abl-2" id="tab-abl-2">Circular path</button>
+            </div>
+          </div>
+          <div class="tabs__panel is-active" id="abl-1" role="tabpanel" aria-labelledby="tab-abl-1">
+            <div class="triple">
+              <div>
+                <p class="cell__label cell__label--base">Go-with-the-Flow</p>
+                <div class="frame"><video src="compare_ablation/1_go_with_the_flow.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--ref">Vanilla Wan-Move</p>
+                <div class="frame"><video src="compare_ablation/1_wan_move.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--ours">Physics-Aware Wan-Move (Ours)</p>
+                <div class="frame"><video src="compare_ablation/1_ours.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt">A glossy plump light blue water balloon hangs motionless in mid-air, held steady at a moderate height above the soft light blue mat on the vibrant green lawn. It accelerates downward in smooth free fall, impacts the mat with a soft squishy impact, compressing noticeably into an oblate shape at the moment of collision, then springs back upward into a gentle vertical rebound.</div>
+          </div>
+          <div class="tabs__panel" id="abl-2" role="tabpanel" aria-labelledby="tab-abl-2">
+            <div class="triple">
+              <div>
+                <p class="cell__label cell__label--base">Go-with-the-Flow</p>
+                <div class="frame"><video src="compare_ablation/2_go_with_the_flow.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--ref">Vanilla Wan-Move</p>
+                <div class="frame"><video src="compare_ablation/2_wan_move.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+              <div>
+                <p class="cell__label cell__label--ours">Physics-Aware Wan-Move (Ours)</p>
+                <div class="frame"><video src="compare_ablation/2_ours.mp4" muted loop playsinline controls preload="none"></video></div>
+              </div>
+            </div>
+            <div class="prompt">A highly polished stainless steel ball starts stationary on the outer track of the multi-layered concentric metallic track system in a clean industrial lab. It begins moving along the circular path with uniform angular acceleration, steadily increasing its tangential speed as it loops around the sleek silver and black rails.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="oneshot">
+      <div class="container">
+        <div class="section__head">
+          <h2>One-Shot Adaptation</h2>
+          <p class="section__lead">When the physical law changes, CompAdapt does not retrain the dynamics module from scratch. SAM2 extracts a state trajectory from a single reference clip, dynamics-aware prior matching selects the best of the pre-trained modules, and a regularized fine-tune adopts the new law.</p>
+        </div>
+
+        <p class="sublead" style="margin-top:1.1rem;">The teaser above shows the full protocol: a single <strong>real Apollo 15 clip is the reference</strong>, SAM2 recovers its state trajectory, and one-shot adaptation reproduces its slow lunar timing where the Earth-gravity prior falls far too fast. Below, the same one-clip protocol generalizes beyond gravity.</p>
+
+        <h3 class="subhead">More one-shot adaptations — beyond gravity</h3>
+        <p class="sublead">Each case: a <strong>simulated reference</strong> of the target law, then realistic <strong>zero-shot</strong> and <strong>one-shot</strong> results under a <em>different</em> initial condition — the learned law transfers across ICs and from simulation to real footage.</p>
+        <div class="tabs" data-tabs style="margin-top:1.2rem;">
+          <div class="tabs__platter">
+            <div class="tabs__track" role="tablist" aria-label="One-shot scenarios">
+              <span class="tabs__indicator" data-indicator></span>
+              <button class="tabs__tab" role="tab" aria-selected="true" aria-controls="osc-1" id="tab-osc-1">Negative damping</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="osc-2" id="tab-osc-2">Damping</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="osc-3" id="tab-osc-3">Viscous drag</button>
+              <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="osc-4" id="tab-osc-4">Restitution</button>
+            </div>
+          </div>
+
+          <div class="tabs__panel is-active" id="osc-1" role="tabpanel" aria-labelledby="tab-osc-1">
+            <div class="flow">
+              <div class="flowcell flowcell--ref">
+                <p class="flowcell__head">Reference · simulation</p>
+                <div class="tile tile--schematic"><video src="compare_one_shot/cases/negpend_ref.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--zs">
+                <p class="flowcell__head">Zero-shot prior <span class="badge badge--no" aria-label="wrong physical law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/negpend_zero.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--os">
+                <p class="flowcell__head">One-shot adapted <span class="badge badge--ok" aria-label="correct adapted law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/negpend_one.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+            </div>
+                        <div class="prompt"><p class="prompt__body">A polished brass sphere hangs from a thin black cord on a classic wooden laboratory stand, above a worn wooden bench where an open book rests beneath it. The pendulum is released from a small angle near the vertical and swings smoothly from side to side; instead of settling, every swing reaches slightly farther than the one before, the amplitude growing steadily while the period stays almost constant. Warm sunlight filters through the tall windows of the quiet physics laboratory.</p></div>
+<p class="caption"><strong>Negative-damping pendulum.</strong> The zero-shot prior falls back on the damped-oscillation module and settles after one swing under positive damping; one-shot flips the damping sign and reproduces the growing oscillation (<em style="font-family:var(--font-math)">θ = θ₀e<sup>αt</sup>cos ω<sub>d</sub>t</em>, α &gt; 0). OODPhys d = −0.5, Var-PIS <strong>0.894</strong>.</p>
+          </div>
+
+          <div class="tabs__panel" id="osc-2" role="tabpanel" aria-labelledby="tab-osc-2">
+            <div class="flow">
+              <div class="flowcell flowcell--ref">
+                <p class="flowcell__head">Reference · simulation</p>
+                <div class="tile tile--schematic"><video src="compare_one_shot/cases/pend_ref.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--zs">
+                <p class="flowcell__head">Zero-shot prior <span class="badge badge--no" aria-label="wrong physical law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/pend_zero.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--os">
+                <p class="flowcell__head">One-shot adapted <span class="badge badge--ok" aria-label="correct adapted law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/pend_one.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+            </div>
+                        <div class="prompt"><p class="prompt__body">A small polished brass pendulum bob hangs from a slender black rod fixed to a rustic wooden beam, with vintage brass instruments and an open book scattered across the warm wooden bench below. The bob is pulled to one side and released into a gentle, rhythmic pendulum motion; the oscillations persist through many cycles and fade only very gradually, each swing reaching slightly less far than the last as light damping slowly drains the energy away. Soft golden afternoon light fills the old laboratory.</p></div>
+<p class="caption"><strong>Damping-coefficient shift.</strong> The zero-shot prior is over-damped and settles after one swing; one-shot sustains the slowly decaying oscillation (<em style="font-family:var(--font-math)">θ = θ₀e<sup>−βt</sup>cos Ωt</em>). Var-PIS <strong>0.895–0.901</strong>.</p>
+          </div>
+
+          <div class="tabs__panel" id="osc-3" role="tabpanel" aria-labelledby="tab-osc-3">
+            <div class="flow">
+              <div class="flowcell flowcell--ref">
+                <p class="flowcell__head">Reference · simulation</p>
+                <div class="tile tile--schematic"><video src="compare_one_shot/cases/visc_ref.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--zs">
+                <p class="flowcell__head">Zero-shot prior <span class="badge badge--no" aria-label="wrong physical law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/visc_zero.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--os">
+                <p class="flowcell__head">One-shot adapted <span class="badge badge--ok" aria-label="correct adapted law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/visc_one.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+            </div>
+                        <div class="prompt"><p class="prompt__body">A polished chrome steel sphere is released just beneath the surface of a clear turquoise liquid in a tall transparent glass tank. Instead of accelerating in free fall, the ball quickly reaches a steady terminal velocity and then descends vertically at a constant speed through the viscous fluid, leaving a thin vertical trail of tiny bubbles rising behind it. Bright volumetric light rays pass through the still liquid, the dark sphere standing out against the luminous water.</p></div>
+<p class="caption"><strong>Viscous medium.</strong> The zero-shot prior ignores drag and sinks as in free fall; one-shot holds a steady terminal velocity (<em style="font-family:var(--font-math)">v = v<sub>t</sub>(1 − e<sup>−t/τ</sup>)</em>). η = 1.0, Var-PIS <strong>0.940</strong>.</p>
+          </div>
+
+          <div class="tabs__panel" id="osc-4" role="tabpanel" aria-labelledby="tab-osc-4">
+            <div class="flow">
+              <div class="flowcell flowcell--ref">
+                <p class="flowcell__head">Reference · simulation</p>
+                <div class="tile tile--schematic"><video src="compare_one_shot/cases/bounce_ref.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--zs">
+                <p class="flowcell__head">Zero-shot prior <span class="badge badge--no" aria-label="wrong physical law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/bounce_zero.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+              <div class="flow__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+              <div class="flowcell flowcell--os">
+                <p class="flowcell__head">One-shot adapted <span class="badge badge--ok" aria-label="correct adapted law"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></p>
+                <div class="tile"><video src="compare_one_shot/cases/bounce_one.mp4" autoplay muted loop playsinline preload="metadata"></video></div>
+              </div>
+            </div>
+                        <div class="prompt"><p class="prompt__body">A small bright orange rubber super-ball is held at arm’s height above a polished hardwood gymnasium floor and released without spin. It falls vertically and rebounds in a rapid series of bounces, each peak reaching a little lower than the previous one as the impacts dissipate energy; the hops become smaller and quicker until the ball settles and rests still on the floor. Even soft overhead light casts a crisp contact shadow, with a softly blurred neutral gym wall behind.</p></div>
+<p class="caption"><strong>Collision restitution.</strong> The zero-shot collision module defaults to elastic contact and returns the ball to the same height on every bounce; one-shot adapts the restitution law so rebound heights decay geometrically (<em style="font-family:var(--font-math)">h<sub>n</sub> = e<sup>2n</sup>h<sub>0</sub></em>, e &lt; 1) until the ball comes to rest.</p>
+          </div>
+        </div>
+
+        <h3 class="subhead">Adaptation breadth across the OODPhys benchmark</h3>
+        <p class="sublead">The same one-clip protocol spans <strong>34 controlled scenarios across seven dynamical categories</strong> — near- and mid-domain parameter / structure shifts adapt reliably (mean one-shot Var-PIS <strong>0.79–0.99</strong>, where 1.0 is the physical upper bound), while far-domain structural OOD (0.42–0.69) and chaotic / adversarial capacity limits remain an open frontier. Full per-scenario numbers are in the paper's OODPhys table.</p>
+
+        <div class="realworld">
+          <div class="realworld__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.7 3.9 9S14.6 18.5 12 21c-2.6-2.5-3.9-5.7-3.9-9S9.4 5.5 12 3z"/></svg>
+          </div>
+          <div>
+            <h3>Real-world validation, no simulator in the loop</h3>
+            <p>The identical pipeline runs on three public real videos — a NASA lunar free-fall experiment, a curling-broadcast low-friction slide, and a damped-pendulum laboratory recording. SAM2 tracks the object and supplies the observation; all three reach Var-PIS above 0.90 with standard deviation below 0.016.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="method">
+      <div class="container">
+        <div class="section__head">
+          <h2>Method</h2>
+          <p class="section__lead">CompAdapt separates physical reasoning from visual rendering: a free-form prompt is parsed into structured physical semantics, neural dynamics compose it into a physically guaranteed trajectory, and a physics-aware renderer turns that trajectory into realistic frames — with a one-shot loop for adapting to unseen physical laws.</p>
+        </div>
+
+        <div class="figure-plate">
+          <img src="assets/pipeline.png" alt="CompAdapt pipeline: (a) NewtonGen baseline and (b) the full CompAdapt framework with text-to-physical parsing, per-object dynamics, MTC composition, MOT collision handling, video generation, and one-shot adaptation." width="3773" height="2281" decoding="async">
+        </div>
+        <p class="figcap"><strong>Overview.</strong> (a) NewtonGen drives one object under one motion type from preset parameters through a single NND. (b) CompAdapt adds text-to-physical parsing, per-object dynamics, MTC composition, explicit MOT collision resolution, physics-aware rendering, and a one-shot adaptation loop (observation → prior matching → adapted NND).</p>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step__num">1</div>
+            <h3>Text-to-Physical Parsing</h3>
+            <p>A dual Qwen2.5-7B parser decouples semantics from numbers. <em>LLM<sub>seq</sub></em> classifies every motion into 12 categories and their parallel / sequential order; <em>LLM<sub>param</sub></em> estimates each object's initial state <strong>Z<sub>0</sub></strong> — no hand-tuned parameters.</p>
+          </div>
+          <div class="step">
+            <div class="step__num">2</div>
+            <h3>Per-object Neural Newtonian Dynamics</h3>
+            <p>Each motion component activates its category-specific NND. A second-order ODE — learnable linear Newtonian terms plus an MLP residual — is integrated by a Neural ODE to evolve the state continuously from <strong>Z<sub>0</sub></strong>.</p>
+          </div>
+          <div class="step">
+            <div class="step__num">3</div>
+            <h3>Composite Motion &amp; Interaction</h3>
+            <p><strong>MTC</strong> additively superposes simultaneous components in the 10D state (mass held fixed) and chains stages through the previous terminal state. On convex-shape contact, <strong>MOT</strong> applies a collision NND for the discontinuous before→after jump, using explicit mass for momentum transfer.</p>
+          </div>
+          <div class="step">
+            <div class="step__num">4</div>
+            <h3>Physics-Aware Rendering</h3>
+            <p>Built on Wan-Move. A <strong>Spatial Warp</strong> module rotates and scales a local latent patch instead of hard global copying, and an <strong>Adaptive Blending</strong> module gates warped against native features — removing texture distortion under rotation and scaling.</p>
+          </div>
+          <div class="step step--adapt">
+            <div class="step__num">5</div>
+            <h3>One-Shot Adaptation</h3>
+            <p>SAM2 extracts a state trajectory from one clip. Prior matching picks the closest of <em>K</em> pre-trained NNDs by trajectory MSE, and a regularized fine-tune adopts the new law while staying near the learned dynamics prior.</p>
+          </div>
+        </div>
+
+        <div class="methodcols">
+          <div class="panel">
+            <h3>Augmented 10D physical state</h3>
+            <p>NewtonGen's 9D kinematic state is extended with an explicit mass dimension μ, which momentum transfer during collisions cannot be inferred from geometry alone.</p>
+            <div class="statechips" style="margin:.7rem 0 .9rem;">
+              <span class="chip"><b>x, y</b> centroid</span>
+              <span class="chip"><b>v<sub>x</sub>, v<sub>y</sub></b> velocity</span>
+              <span class="chip"><b>θ, ω</b> rotation</span>
+              <span class="chip"><b>s, l</b> dimensions</span>
+              <span class="chip"><b>a</b> area</span>
+              <span class="chip chip--mu"><b>μ</b> mass</span>
+            </div>
+            <div class="eq"><span class="nm">Neural Newtonian ODE per state element</span>a<sub>z</sub> z¨ + b<sub>z</sub> ż + c<sub>z</sub> z + d<sub>z</sub> + MLP(Z) = 0</div>
+            <div class="eq"><span class="nm">Neural-ODE integration</span>Z<sub>t</sub> = Z<sub>0</sub> + ∫ Func(Z(τ)) dτ</div>
+          </div>
+          <div class="panel">
+            <h3>Key operators</h3>
+            <div class="eq"><span class="nm">MTC · additive parallel composition (mass masked by r)</span>Z<sup>syn</sup>(t) = Z<sub>init</sub> + Σ<sub>j</sub> r ⊙ ( Z<sub>i,j</sub>(t) − Z<sub>init</sub> )</div>
+            <div class="eq"><span class="nm">MOT · discrete collision resolution</span>( Z<sub>A</sub><sup>+</sup>, Z<sub>B</sub><sup>+</sup> ) = D<sub>col</sub>( Z<sub>A</sub><sup>−</sup>, Z<sub>B</sub><sup>−</sup> )</div>
+            <div class="eq"><span class="nm">Physics-aware warp &amp; adaptive blend</span>M<sub>f</sub> = R(θ<sub>f</sub>−θ<sub>0</sub>) · diag(s<sub>f</sub>/s<sub>0</sub>, l<sub>f</sub>/l<sub>0</sub>)<br>h<sub>f</sub> = G ⊙ M<sub>f</sub>(H<sub>0</sub>) + (1−G) ⊙ h̃<sub>f</sub></div>
+            <div class="eq"><span class="nm">One-shot adaptation loss (fit + prior regularizer)</span>ℒ<sub>adapt</sub> = (1/F) Σ<sub>f</sub> ‖ D(Z<sub>0</sub>,f;φ) − Ẑ<sub>f</sub> ‖² + λ ‖ φ − φ<sub>0</sub> ‖²</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="bibtex">
+      <div class="container">
+        <div class="section__head">
+          <h2>BibTeX</h2>
+        </div>
+        <div class="bibtex">
+          <button class="button button--sm bibtex__copy" id="copy-bib" type="button">Copy</button>
+          <pre id="bibtex-block"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    CompAdapt · arXiv preprint
+  </footer>
+
+  <script>
+    (function () {
+      const site = window.SITE || {};
+      const authors = document.getElementById("authors");
+      if (site.authorsHtml) authors.innerHTML = site.authorsHtml;
+      const aff = document.getElementById("affiliations");
+      if (site.affiliationsHtml) {
+        aff.innerHTML = site.affiliationsHtml;
+        aff.hidden = false;
+      }
+      const wire = (btn, url) => {
+        if (!btn || !url) return;
+        btn.href = url;
+        btn.target = "_blank";
+        btn.rel = "noopener";
+        btn.classList.remove("is-pending");
+      };
+      wire(document.getElementById("btn-paper"), site.paperUrl);
+      wire(document.getElementById("btn-code"), site.codeUrl);
+
+      const id = site.arxivId || "";
+      const url = id ? ("https://arxiv.org/abs/" + id) : (site.paperUrl || "");
+      const eprint = id
+        ? "\n  eprint={" + id + "},\n  archivePrefix={arXiv},"
+        : "";
+      const journal = id ? "arXiv preprint arXiv:" + id : "arXiv preprint";
+      document.getElementById("bibtex-block").textContent =
+        "@article{compadapt2026,\n" +
+        "  title={CompAdapt: Adaptable Composite Motion Modeling for Physics-Consistent Text-to-Video Generation},\n" +
+        "  author={" + (site.bibAuthors || "Anonymous") + "},\n" +
+        "  journal={" + journal + "},\n" +
+        "  year={2026}," + eprint + "\n" +
+        "  url={" + url + "}\n" +
+        "}";
+      const copyBtn = document.getElementById("copy-bib");
+      copyBtn.addEventListener("click", function () {
+        navigator.clipboard.writeText(document.getElementById("bibtex-block").textContent).then(function () {
+          copyBtn.textContent = "Copied";
+          setTimeout(function () { copyBtn.textContent = "Copy"; }, 1200);
+        });
+      });
+
+      const topbar = document.getElementById("topbar");
+      const pin = () => topbar.classList.toggle("is-pinned", window.scrollY > 48);
+      pin();
+      window.addEventListener("scroll", pin, { passive: true });
+
+      const links = [...document.querySelectorAll(".topbar__link")];
+      const sections = links
+        .map((a) => document.querySelector(a.getAttribute("href")))
+        .filter(Boolean);
+
+      const setActive = () => {
+        const y = window.scrollY + 96;
+        let current = sections[0];
+        for (const s of sections) {
+          if (s.offsetTop <= y) current = s;
+        }
+        links.forEach((a) => a.classList.toggle("is-active", a.getAttribute("href") === "#" + current.id));
+      };
+      setActive();
+      window.addEventListener("scroll", setActive, { passive: true });
+
+      function layoutIndicator(root) {
+        const track = root.querySelector(".tabs__track");
+        const indicator = root.querySelector("[data-indicator]");
+        const selected = root.querySelector('.tabs__tab[aria-selected="true"]');
+        if (!track || !indicator || !selected) return;
+        indicator.style.width = selected.offsetWidth + "px";
+        indicator.style.transform = "translateX(" + selected.offsetLeft + "px)";
+      }
+
+      document.querySelectorAll("[data-tabs]").forEach((root) => {
+        const tabs = [...root.querySelectorAll(".tabs__tab")];
+        layoutIndicator(root);
+        window.addEventListener("resize", () => layoutIndicator(root));
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+            root.querySelectorAll(".tabs__panel").forEach((p) => {
+              p.classList.toggle("is-active", p.id === tab.getAttribute("aria-controls"));
+            });
+            layoutIndicator(root);
+            root.querySelectorAll(".tabs__panel.is-active video").forEach((v) => {
+              v.play().catch(() => {});
+            });
+            root.querySelectorAll(".tabs__panel:not(.is-active) video").forEach((v) => v.pause());
+          });
+        });
+      });
+
+      const playVisible = () => {
+        document.querySelectorAll("video").forEach((v) => {
+          const panel = v.closest(".tabs__panel");
+          if (panel && !panel.classList.contains("is-active")) {
+            v.pause();
+            return;
+          }
+          const r = v.getBoundingClientRect();
+          const vis = r.top < window.innerHeight && r.bottom > 0;
+          if (vis) v.play().catch(() => {});
+          else v.pause();
+        });
+      };
+      playVisible();
+      window.addEventListener("scroll", playVisible, { passive: true });
+    })();
+  </script>
+</body>
+</html>
